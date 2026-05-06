@@ -12,47 +12,85 @@ class WarpResult:
     garment_rgba_on_canvas: np.ndarray
     alpha_on_canvas: np.ndarray
     warp_mode: str
+    bbox: tuple[int, int, int, int]
 
 
-def _anchor_points(mask: np.ndarray) -> np.ndarray:
-    ys, xs = np.where(mask > 10)
-    if len(xs) == 0:
-        h, w = mask.shape
-        return np.float32([[w * 0.5, h * 0.1], [w * 0.2, h * 0.25], [w * 0.8, h * 0.25], [w * 0.5, h * 0.9]])
-    top = np.argmin(ys)
-    bottom = np.argmax(ys)
-    top_center = np.array([xs[top], ys[top]], dtype=np.float32)
-    bottom_center = np.array([xs[bottom], ys[bottom]], dtype=np.float32)
-    shoulder_y = int(np.percentile(ys, 22))
-    shoulder_band = np.where(np.abs(ys - shoulder_y) < 8)[0]
-    left = np.array([np.min(xs[shoulder_band]), shoulder_y], dtype=np.float32)
-    right = np.array([np.max(xs[shoulder_band]), shoulder_y], dtype=np.float32)
-    return np.float32([top_center, left, right, bottom_center])
+def _mask_bbox(alpha_mask: np.ndarray) -> tuple[int, int, int, int] | None:
+    binary = (alpha_mask > 10).astype(np.uint8)
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    contour = max(contours, key=cv2.contourArea)
+    x, y, bw, bh = cv2.boundingRect(contour)
+    if bw < 8 or bh < 8:
+        return None
+    return (int(x), int(y), int(bw), int(bh))
 
 
-def warp_garment_to_mannequin(image_bgr: np.ndarray, alpha_mask: np.ndarray, mannequin_bgr: np.ndarray) -> WarpResult:
-    h, w = mannequin_bgr.shape[:2]
-    source = _anchor_points(alpha_mask)
-    dest = np.float32([
-        [w * 0.5, h * 0.18],
-        [w * 0.31, h * 0.3],
-        [w * 0.69, h * 0.3],
-        [w * 0.5, h * 0.78],
-    ])
+def _tight_cutout(image_bgr: np.ndarray, alpha_mask: np.ndarray, bbox: tuple[int, int, int, int]) -> np.ndarray:
+    src_h, src_w = image_bgr.shape[:2]
+    x, y, bw, bh = bbox
+    pad = int(0.04 * max(bw, bh))
+    cx0 = max(0, x - pad)
+    cy0 = max(0, y - pad)
+    cx1 = min(src_w, x + bw + pad)
+    cy1 = min(src_h, y + bh + pad)
+    rgb = image_bgr[cy0:cy1, cx0:cx1]
+    alpha = alpha_mask[cy0:cy1, cx0:cx1]
+    rgba = cv2.cvtColor(rgb, cv2.COLOR_BGR2BGRA)
+    rgba[:, :, 3] = alpha
+    return rgba
 
-    M = cv2.getAffineTransform(source[:3], dest[:3])
-    warped_img = cv2.warpAffine(image_bgr, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
-    warped_alpha = cv2.warpAffine(alpha_mask, M, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
-    warp_mode = "affine"
 
-    rgba_cutout = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2BGRA)
-    rgba_cutout[:, :, 3] = alpha_mask
+def warp_garment_to_mannequin(
+    image_bgr: np.ndarray,
+    alpha_mask: np.ndarray,
+    mannequin_bgr: np.ndarray,
+) -> WarpResult:
+    canvas_h, canvas_w = mannequin_bgr.shape[:2]
+    src_h, src_w = image_bgr.shape[:2]
+
+    bbox = _mask_bbox(alpha_mask) or (0, 0, src_w, src_h)
+    x, y, bw, bh = bbox
+
+    target_cx = canvas_w * 0.5
+    target_cy = canvas_h * 0.46
+    target_max_w = canvas_w * 0.62
+    target_max_h = canvas_h * 0.64
+
+    scale = float(min(target_max_w / max(bw, 1), target_max_h / max(bh, 1)))
+
+    src_cx = x + bw * 0.5
+    src_cy = y + bh * 0.5
+    tx = target_cx - src_cx * scale
+    ty = target_cy - src_cy * scale
+    affine = np.float32([[scale, 0.0, tx], [0.0, scale, ty]])
+
+    warped_img = cv2.warpAffine(
+        image_bgr,
+        affine,
+        (canvas_w, canvas_h),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=(255, 255, 255),
+    )
+    warped_alpha = cv2.warpAffine(
+        alpha_mask,
+        affine,
+        (canvas_w, canvas_h),
+        flags=cv2.INTER_LINEAR,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+
+    cutout_rgba = _tight_cutout(image_bgr, alpha_mask, bbox)
     garment_rgba = cv2.cvtColor(warped_img, cv2.COLOR_BGR2BGRA)
     garment_rgba[:, :, 3] = warped_alpha
 
     return WarpResult(
-        cutout_rgba=rgba_cutout,
+        cutout_rgba=cutout_rgba,
         garment_rgba_on_canvas=garment_rgba,
         alpha_on_canvas=warped_alpha,
-        warp_mode=warp_mode,
+        warp_mode="similarity",
+        bbox=bbox,
     )

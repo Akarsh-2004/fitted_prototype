@@ -9,6 +9,7 @@ class ProcessMeta(BaseModel):
     used_fallback: bool
     warp_mode: str
     request_key: str
+    segmentation_method: str = "unknown"
 
 
 class ProcessResponse(BaseModel):

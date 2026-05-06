@@ -2,8 +2,9 @@ export type TryonMeta = {
   mask_quality: number
   processing_time: number
   used_fallback: boolean
-  warp_mode: 'affine' | 'tps'
+  warp_mode: 'affine' | 'tps' | 'similarity'
   request_key: string
+  segmentation_method?: 'grabcut' | 'color_distance' | 'cached' | 'refine_only' | 'unknown'
 }
 
 export type TryonResponse = {
@@ -28,7 +29,10 @@ export async function processSingle(
   form.append('smoothness', String(params?.smoothness ?? 0.5))
 
   const res = await fetch(`${API_BASE}/process-single`, { method: 'POST', body: form })
-  if (!res.ok) throw new Error('Processing failed')
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null)
+    throw new Error(detail?.detail || 'Processing failed')
+  }
   const json = (await res.json()) as TryonResponse
   return {
     cutoutSrc: toDataUrl(json.cutout),
@@ -51,7 +55,10 @@ export async function refineSingle(input: {
   form.append('smoothness', String(input.smoothness))
 
   const res = await fetch(`${API_BASE}/refine-single`, { method: 'POST', body: form })
-  if (!res.ok) throw new Error('Refine failed')
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null)
+    throw new Error(detail?.detail || 'Refine failed')
+  }
   const json = (await res.json()) as TryonResponse
   return {
     cutoutSrc: toDataUrl(json.cutout),
