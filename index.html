@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VESTIR — Styling Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f0ece6;--side:#18161400;--side2:#242220;--accent:#c4a57b;--accent2:#8b6f47;
+  --txt:#faf9f8;--muted:#9e978f;--board:#ffffff;--bdr:rgba(255,255,255,0.07);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);
+  height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+header{
+  background:linear-gradient(90deg,#1a1714 60%,#1e1b17);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;height:50px;border-bottom:1px solid var(--bdr);
+  flex-shrink:0;backdrop-filter:blur(8px);
+}
+header h1{
+  font-family:'Cormorant Garamond',serif;font-size:20px;
+  letter-spacing:.3em;color:var(--accent);font-weight:600;
+}
+.hdr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.btn{
+  background:transparent;border:1px solid rgba(255,255,255,.12);
+  color:var(--muted);padding:5px 13px;border-radius:4px;
+  font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;
+  cursor:pointer;letter-spacing:.06em;transition:.15s;white-space:nowrap
+}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-p{background:var(--accent);border-color:var(--accent);color:#1a1714}
+.btn-p:hover{background:var(--accent2);border-color:var(--accent2);color:#fff}
+select.btn{appearance:none;padding-right:22px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center}
+
+#main{display:flex;flex:1;overflow:hidden;min-height:0}
+
+#sidebar{
+  width:200px;background:#1a1714;display:flex;
+  flex-direction:column;border-right:1px solid var(--bdr);
+  overflow-y:auto;flex-shrink:0;
+}
+#sidebar::-webkit-scrollbar{width:3px}
+#sidebar::-webkit-scrollbar-thumb{background:#2e2a26}
+.slab{font-size:9px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:10px;font-weight:500}
+.ss{padding:14px;border-bottom:1px solid var(--bdr)}
+
+.upz{
+  border:1.5px dashed rgba(196,165,123,.35);border-radius:8px;
+  padding:14px 10px;text-align:center;cursor:pointer;transition:.2s;
+}
+.upz:hover,.upz.dov{border-color:var(--accent);background:rgba(196,165,123,.04)}
+.upz .ico{font-size:22px;display:block;margin-bottom:6px}
+.upz p{font-size:10px;color:var(--muted);line-height:1.6}
+.upz strong{color:var(--accent);font-weight:500}
+.upz small{display:block;margin-top:6px;font-size:9px;color:#5e5952}
+
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ct{
+  background:#222019;border-radius:7px;padding:8px 6px;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  border:1.5px solid transparent;transition:.15s;
+}
+.ct:hover{border-color:var(--accent);background:rgba(196,165,123,.07)}
+.ct svg{width:52px;height:60px}
+.ct span{font-size:8px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+
+#bwrap{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  overflow:auto;background:var(--bg);position:relative;min-width:0;
+}
+#bwrap::before{
+  content:'';position:absolute;inset:0;pointer-events:none;opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Crect width='4' height='4' fill='%23d9d1c5'/%3E%3Crect x='0' y='0' width='2' height='2' fill='%23cec6b9' opacity='.5'/%3E%3Crect x='2' y='2' width='2' height='2' fill='%23cec6b9' opacity='.5'/%3E%3C/svg%3E");
+}
+#board{
+  width:min(580px,92vw);height:min(690px,78vh);max-height:calc(100vh - 50px);
+  background:#fff;position:relative;overflow:hidden;
+  box-shadow:0 10px 50px rgba(0,0,0,.18),0 2px 10px rgba(0,0,0,.1);border-radius:3px;
+  flex-shrink:0;
+}
+#board.bg-cream{background:#faf5ef}
+#board.bg-stone{background:#e8e4df}
+#board.bg-dark{background:#1a1714}
+#board.bg-grid{background:#fff;
+  background-image:linear-gradient(rgba(0,0,0,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,0,0,.04) 1px,transparent 1px);
+  background-size:20px 20px}
+#board.bg-dots{background:#fff;
+  background-image:radial-gradient(circle,rgba(0,0,0,.12) 1px,transparent 1px);
+  background-size:20px 20px}
+
+.bi{
+  position:absolute;cursor:move;user-select:none;touch-action:none;
+  transform-origin:center center;
+}
+.bi-inner{position:relative;display:inline-block}
+.bi.sel .bi-inner::after{
+  content:'';position:absolute;inset:-5px;
+  border:2px solid var(--accent);border-radius:3px;pointer-events:none;
+}
+.bi svg,.bi img{display:block;filter:drop-shadow(0 5px 14px rgba(0,0,0,.22))}
+.bi img{max-width:none}
+
+.h-rot{
+  position:absolute;top:-26px;left:50%;transform:translateX(-50%);
+  width:18px;height:18px;background:var(--accent);border-radius:50%;
+  cursor:grab;display:none;align-items:center;justify-content:center;
+  font-size:12px;color:#1a1714;box-shadow:0 2px 6px rgba(0,0,0,.3);
+}
+.bi.sel .h-rot{display:flex}
+.h-sc{
+  position:absolute;bottom:-7px;right:-7px;width:14px;height:14px;
+  background:var(--accent);border-radius:3px;cursor:se-resize;
+  display:none;box-shadow:0 2px 6px rgba(0,0,0,.3);
+}
+.bi.sel .h-sc{display:block}
+
+#ins{
+  width:210px;background:#1a1714;border-left:1px solid var(--bdr);
+  display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;
+}
+#ins::-webkit-scrollbar{width:3px}
+#ins::-webkit-scrollbar-thumb{background:#2e2a26}
+.ie{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:8px;color:var(--muted);font-size:11px;
+  text-align:center;padding:24px;
+}
+.is{padding:14px;border-bottom:1px solid var(--bdr)}
+.cg2{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.sw{
+  width:22px;height:22px;border-radius:50%;cursor:pointer;
+  border:2px solid transparent;transition:.15s;flex-shrink:0;
+}
+.sw:hover{transform:scale(1.18)}
+.sw.act{border-color:#fff!important}
+.cpw{display:flex;align-items:center;gap:8px;margin-top:8px}
+.cpw input[type=color]{
+  width:34px;height:26px;padding:0;border:none;background:none;
+  cursor:pointer;border-radius:4px;
+}
+.sr{display:flex;align-items:center;gap:7px;margin-top:8px}
+.sr label{font-size:9px;color:var(--muted);width:50px;letter-spacing:.05em;text-transform:uppercase}
+.sr input[type=range]{
+  flex:1;height:2px;appearance:none;background:#2a2724;border-radius:2px;outline:none;
+}
+.sr input[type=range]::-webkit-slider-thumb{
+  appearance:none;width:11px;height:11px;border-radius:50%;
+  background:var(--accent);cursor:pointer;
+}
+.sr .sv{font-size:9px;color:var(--muted);width:26px;text-align:right}
+.ar{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.ab{
+  flex:1;min-width:0;padding:6px 3px;background:#222019;
+  border:1px solid var(--bdr);color:var(--muted);border-radius:4px;
+  font-size:9px;cursor:pointer;letter-spacing:.03em;text-align:center;
+  transition:.15s;white-space:nowrap;font-family:'DM Sans',sans-serif;
+}
+.ab:hover{color:var(--accent);border-color:var(--accent)}
+.ab.dng:hover{color:#ef4444;border-color:#ef4444}
+
+.li{
+  display:flex;align-items:center;gap:7px;padding:5px 7px;
+  border-radius:5px;cursor:pointer;font-size:10px;transition:.1s;margin-bottom:2px;
+}
+.li:hover{background:#222019}
+.li.act{background:rgba(196,165,123,.1)}
+.lic{
+  width:26px;height:26px;background:#222019;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;
+}
+.lic svg,.lic img{width:100%;height:100%;object-fit:contain}
+.ln{flex:1;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li.act .ln{color:var(--txt)}
+
+@media(max-width:900px){
+  #sidebar{width:180px}
+  #ins{width:190px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>VESTIR</h1>
+  <div class="hdr-actions">
+    <select id="bgSel" class="btn" aria-label="Board background">
+      <option value="white">White</option>
+      <option value="cream">Cream</option>
+      <option value="stone">Stone</option>
+      <option value="dark">Dark</option>
+      <option value="grid">Grid</option>
+      <option value="dots">Dots</option>
+    </select>
+    <button type="button" id="mnBtn" class="btn">Body Outline</button>
+    <button type="button" id="clrBtn" class="btn">Clear All</button>
+    <button type="button" id="expBtn" class="btn btn-p">Export PNG</button>
+  </div>
+</header>
+
+<div id="main">
+  <aside id="sidebar">
+    <div class="ss">
+      <div class="slab">Upload Cutout</div>
+      <div class="upz" id="upz" role="button" tabindex="0">
+        <span class="ico" aria-hidden="true">🖼️</span>
+        <p><strong>Click or drop</strong> PNG/JPG clothing photos</p>
+        <small>Use transparent-background PNGs<br>for best results</small>
+      </div>
+      <input type="file" id="fi" accept="image/*" multiple style="display:none">
+    </div>
+    <div class="ss">
+      <div class="slab">Where to get cutouts</div>
+      <p style="font-size:9px;color:#5e5952;line-height:1.7">
+        🔗 <a href="https://www.freepik.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">freepik.com</a> – search "clothing flat lay PNG"<br>
+        🔗 <a href="https://www.remove.bg" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">remove.bg</a> – remove BG from any photo<br>
+        🔗 <a href="https://www.vecteezy.com" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">vecteezy.com</a> – free clothing vectors
+      </p>
+    </div>
+    <div class="ss">
+      <div class="slab">Built-in Pieces</div>
+      <div class="cg" id="cat"></div>
+    </div>
+  </aside>
+
+  <div id="bwrap">
+    <div id="board">
+      <svg id="mn" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:none"
+        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 690" preserveAspectRatio="xMidYMid meet">
+        <g fill="none" stroke="rgba(0,0,0,0.09)" stroke-width="1.5" stroke-dasharray="4,3">
+          <ellipse cx="290" cy="78" rx="34" ry="42"/>
+          <path d="M264,116 L264,148 Q264,152 268,152 L312,152 Q316,152 316,148 L316,116"/>
+          <path d="M268,152 C220,158 196,185 190,230 L188,380 L392,380 L390,230 C384,185 360,158 312,152"/>
+          <path d="M190,200 L155,310 L168,314 L202,205"/>
+          <path d="M390,200 L425,310 L412,314 L378,205"/>
+          <path d="M190,310 C202,308 218,305 228,305 L352,305 C362,305 378,308 390,310"/>
+          <path d="M188,380 C178,392 172,408 172,424 L408,424 C408,408 402,392 392,380"/>
+          <path d="M172,424 L158,648 L218,648 L290,464 L362,648 L422,648 L408,424"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <aside id="ins">
+    <div class="ie" id="ie"><div style="font-size:30px;opacity:.25" aria-hidden="true">👗</div><p>Select a piece<br>to edit</p></div>
+    <div id="ic" style="display:none">
+      <div class="is">
+        <div class="slab">Selected Piece</div>
+        <div id="pn" style="font-size:12px;color:var(--txt);font-weight:500"></div>
+      </div>
+      <div class="is" id="colorSec">
+        <div class="slab">Color</div>
+        <div class="cg2" id="swatches"></div>
+        <div class="cpw">
+          <input type="color" id="cp" value="#e8d5c0">
+          <span style="font-size:10px;color:var(--muted)">Custom</span>
+        </div>
+      </div>
+      <div class="is">
+        <div class="slab">Transform</div>
+        <div class="sr"><label>Scale</label><input type="range" id="scSl" min=".2" max="3" step=".05" value="1"><span class="sv" id="scV">1×</span></div>
+        <div class="sr"><label>Rotate</label><input type="range" id="rotSl" min="-180" max="180" step="1" value="0"><span class="sv" id="rotV">0°</span></div>
+        <div class="sr"><label>Opacity</label><input type="range" id="opSl" min=".05" max="1" step=".05" value="1"><span class="sv" id="opV">100%</span></div>
+      </div>
+      <div class="is">
+        <div class="slab">Actions</div>
+        <div class="ar">
+          <button type="button" class="ab" id="flipBtn">⟺ Flip</button>
+          <button type="button" class="ab" id="frtBtn">▲ Front</button>
+          <button type="button" class="ab" id="bckBtn">▼ Back</button>
+        </div>
+        <div class="ar" style="margin-top:5px">
+          <button type="button" class="ab dng" id="delBtn">✕ Remove</button>
+        </div>
+      </div>
+      <div class="is">
+        <div class="slab">Layers</div>
+        <div id="ll"></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+function h2r(h){
+  h=h.replace('#','');
+  if(h.length===3)h=h.split('').map(c=>c+c).join('');
+  return[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+}
+function dk(h,a){const[r,g,b]=h2r(h);return`rgb(${Math.max(0,r-a)},${Math.max(0,g-a)},${Math.max(0,b-a)})`}
+function lk(h,a){const[r,g,b]=h2r(h);return`rgb(${Math.min(255,r+a)},${Math.min(255,g+a)},${Math.min(255,b+a)})`}
+
+const CLOTHES=[
+{
+  id:'tshirt',name:'T-Shirt',dColor:'#e2cdb4',w:200,h:215,
+  fn:(f,uid)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 215">
+    <defs>
+      <linearGradient id="tg${uid}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,.2)"/>
+        <stop offset="60%" stop-color="rgba(0,0,0,0)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,.08)"/>
+      </linearGradient>
+      <filter id="tf${uid}"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity=".2"/></filter>
+    </defs>
+    <path filter="url(#tf${uid})" fill="${f}" d="
+      M74,20 C52,14 26,20 16,34 L0,44 L5,82 L48,68
+      L46,210 L154,210 L152,68 L195,82 L200,44
+      L184,34 C174,20 148,14 126,20
+      Q112,37 100,40 Q88,37 74,20Z"/>
+    <path fill="url(#tg${uid})" d="
+      M74,20 C52,14 26,20 16,34 L0,44 L5,82 L48,68
+      L46,210 L154,210 L152,68 L195,82 L200,44
+      L184,34 C174,20 148,14 126,20
+      Q112,37 100,40 Q88,37 74,20Z"/>
+    <path fill="none" stroke="${dk(f,20)}" stroke-width="2.5" d="M74,20 Q88,38 100,41 Q112,38 126,20"/>
+    <line x1="48" y1="70" x2="46" y2="208" stroke="rgba(0,0,0,.07)" stroke-width="1.5"/>
+    <line x1="152" y1="70" x2="154" y2="208" stroke="rgba(0,0,0,.07)" stroke-width="1.5"/>
+    <path fill="none" stroke="rgba(0,0,0,.09)" stroke-width="1.2" d="M5,82 Q26,76 48,68"/>
+    <path fill="none" stroke="rgba(0,0,0,.09)" stroke-width="1.2" d="M195,82 Q174,76 152,68"/>
+    <path fill="none" stroke="${dk(f,15)}" stroke-width="1" stroke-dasharray="4,3" d="M48,205 L152,205"/>
+  </svg>`
+},
+{
+  id:'shirt',name:'Dress Shirt',dColor:'#f0ebe2',w:210,h:250,
+  fn:(f,uid)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 250">
+    <defs>
+      <linearGradient id="sg${uid}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,.25)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,.08)"/>
+      </linearGradient>
+      <filter id="sf${uid}"><feDropShadow dx="0" dy="5" stdDeviation="7" flood-opacity=".2"/></filter>
+    </defs>
+    <path filter="url(#sf${uid})" fill="${f}" d="
+      M72,38 C48,28 20,32 10,48 L0,62 L8,105 L50,88
+      L48,244 L162,244 L160,88 L202,105 L210,62
+      L200,48 C190,32 162,28 138,38
+      L125,24 L118,28 L105,22 L92,28 L85,24 Z"/>
+    <path fill="url(#sg${uid})" d="
+      M72,38 C48,28 20,32 10,48 L0,62 L8,105 L50,88
+      L48,244 L162,244 L160,88 L202,105 L210,62
+      L200,48 C190,32 162,28 138,38
+      L125,24 L118,28 L105,22 L92,28 L85,24 Z"/>
+    <path fill="${f}" stroke="${dk(f,18)}" stroke-width="1.2" d="M85,24 L92,28 L105,22 L88,50 L68,44 L72,38Z"/>
+    <path fill="${f}" stroke="${dk(f,18)}" stroke-width="1.2" d="M125,24 L118,28 L105,22 L122,50 L142,44 L138,38Z"/>
+    <path fill="${dk(f,12)}" d="M88,50 L105,22 L122,50 L105,58Z" opacity=".6"/>
+    <line x1="105" y1="60" x2="105" y2="244" stroke="${dk(f,12)}" stroke-width="1.5"/>
+    ${[72,96,122,148,174,200,226].filter(y=>y<244).map(y=>`
+      <circle cx="105" cy="${y}" r="4" fill="${dk(f,15)}" stroke="${dk(f,22)}" stroke-width=".8"/>
+      <circle cx="105" cy="${y}" r="1.5" fill="${dk(f,30)}" opacity=".5"/>
+    `).join('')}
+    <rect x="56" y="96" width="30" height="24" rx="2" fill="none" stroke="${dk(f,12)}" stroke-width="1"/>
+    <line x1="56" y1="104" x2="86" y2="104" stroke="${dk(f,12)}" stroke-width=".8"/>
+    <line x1="50" y1="90" x2="48" y2="244" stroke="rgba(0,0,0,.07)" stroke-width="1.2"/>
+    <line x1="160" y1="90" x2="162" y2="244" stroke="rgba(0,0,0,.07)" stroke-width="1.2"/>
+    <line x1="8" y1="98" x2="50" y2="84" stroke="${dk(f,15)}" stroke-width="2"/>
+    <line x1="202" y1="98" x2="160" y2="84" stroke="${dk(f,15)}" stroke-width="2"/>
+    <path fill="none" stroke="${dk(f,12)}" stroke-width="1" d="M48,240 L162,240"/>
+  </svg>`
+},
+{
+  id:'pants',name:'Jeans',dColor:'#3d5a8a',w:185,h:295,
+  fn:(f,uid)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 185 295">
+    <defs>
+      <linearGradient id="pg${uid}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="rgba(255,255,255,.12)"/>
+        <stop offset="50%" stop-color="rgba(255,255,255,0)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,.1)"/>
+      </linearGradient>
+      <filter id="pf${uid}"><feDropShadow dx="0" dy="5" stdDeviation="7" flood-opacity=".2"/></filter>
+    </defs>
+    <path filter="url(#pf${uid})" fill="${f}" d="
+      M12,22 L12,105 C12,120 14,132 24,140
+      L36,148 L92,162 L149,148 L161,140
+      C171,132 173,120 173,105 L173,22 Z"/>
+    <path fill="${dk(f,8)}" d="M24,140 L32,288 L96,288 L92,162 L36,148Z"/>
+    <path fill="${f}" d="M161,140 L153,288 L89,288 L92,162 L149,148Z"/>
+    <rect x="12" y="0" width="161" height="24" rx="3" fill="${dk(f,18)}"/>
+    ${[28,62,92,122,156].map(x=>`<rect x="${x-3}" y="0" width="6" height="28" rx="1.5" fill="${dk(f,28)}"/>`).join('')}
+    <path fill="none" stroke="${lk(f,15)}" stroke-width="1" stroke-dasharray="2,2" d="M92,24 L92,92 Q90,98 86,100"/>
+    <circle cx="30" cy="22" r="3" fill="${lk(f,25)}" stroke="${lk(f,35)}" stroke-width=".8"/>
+    <path fill="none" stroke="${lk(f,20)}" stroke-width="1.5" d="M12,26 Q32,66 44,90"/>
+    <path fill="none" stroke="${lk(f,10)}" stroke-width="1.5" d="M173,26 Q153,66 141,90"/>
+    <path fill="none" stroke="${dk(f,12)}" stroke-width="1.5" d="M32,288 L92,162 L153,288"/>
+    <path fill="url(#pg${uid})" d="M12,22 L12,105 C12,120 14,132 24,140 L36,148 L92,162 L149,148 L161,140 C171,132 173,120 173,105 L173,22Z"/>
+    <rect x="16" y="185" width="72" height="30" rx="2" fill="${lk(f,6)}" opacity=".25"/>
+    <rect x="97" y="185" width="72" height="30" rx="2" fill="${lk(f,4)}" opacity=".18"/>
+    <line x1="32" y1="282" x2="96" y2="282" stroke="${dk(f,20)}" stroke-width="1.5"/>
+    <line x1="89" y1="282" x2="153" y2="282" stroke="${dk(f,20)}" stroke-width="1.5"/>
+  </svg>`
+},
+{
+  id:'skirt',name:'A-Line Skirt',dColor:'#c09ab0',w:205,h:190,
+  fn:(f,uid)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 205 190">
+    <defs>
+      <linearGradient id="kkg${uid}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,.18)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,.08)"/>
+      </linearGradient>
+      <filter id="kkf${uid}"><feDropShadow dx="0" dy="5" stdDeviation="8" flood-opacity=".18"/></filter>
+    </defs>
+    <path filter="url(#kkf${uid})" fill="${f}" d="M36,20 L2,182 L203,182 L169,20 Z"/>
+    <path fill="url(#kkg${uid})" d="M36,20 L2,182 L100,182 L80,20Z"/>
+    <line x1="72" y1="20" x2="42" y2="182" stroke="rgba(0,0,0,.08)" stroke-width="1.5"/>
+    <line x1="102" y1="20" x2="102" y2="182" stroke="rgba(0,0,0,.06)" stroke-width="1.2"/>
+    <line x1="133" y1="20" x2="163" y2="182" stroke="rgba(0,0,0,.08)" stroke-width="1.5"/>
+    <rect x="36" y="0" width="133" height="22" rx="3" fill="${dk(f,16)}"/>
+    <rect x="36" y="0" width="133" height="10" rx="3" fill="rgba(255,255,255,.08)"/>
+    <line x1="102" y1="2" x2="102" y2="20" stroke="${dk(f,28)}" stroke-width="1.5"/>
+    <ellipse cx="102" cy="20" rx="4" ry="3" fill="${dk(f,28)}"/>
+    <path fill="none" stroke="${dk(f,12)}" stroke-width="1.5" d="M2,182 Q102,188 203,182"/>
+    <path fill="none" stroke="${dk(f,20)}" stroke-width=".8" stroke-dasharray="3,3" d="M4,178 Q102,184 201,178"/>
+  </svg>`
+},
+{
+  id:'blazer',name:'Blazer',dColor:'#2c3040',w:225,h:285,
+  fn:(f,uid)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 225 285">
+    <defs>
+      <linearGradient id="blg${uid}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,.1)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,.1)"/>
+      </linearGradient>
+      <filter id="blf${uid}"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-opacity=".25"/></filter>
+    </defs>
+    <path filter="url(#blf${uid})" fill="${f}" d="
+      M74,34 C48,24 18,30 6,50 L0,64 L10,112 L56,92
+      L52,280 L173,280 L169,92 L215,112 L225,64
+      L219,50 C207,30 177,24 151,34
+      L125,18 L115,54 L112,58 L110,54 L105,18 Z"/>
+    <path fill="${lk(f,6)}" stroke="${dk(f,12)}" stroke-width="1" d="
+      M74,34 L85,18 L105,18 L110,54 L75,100 L52,92 L56,70Z"/>
+    <path fill="${lk(f,6)}" stroke="${dk(f,12)}" stroke-width="1" d="
+      M151,34 L140,18 L125,18 L115,54 L150,100 L173,92 L169,70Z"/>
+    <path fill="${dk(f,10)}" d="M105,18 L110,54 L112,58 L115,54 L125,18 L112,28Z" opacity=".7"/>
+    <path fill="${lk(f,14)}" d="M110,58 L112,58 L138,100 L140,280 L110,280 L87,100Z"/>
+    <path fill="url(#blg${uid})" d="M74,34 C48,24 18,30 6,50 L0,64 L10,112 L56,92 L52,280 L173,280 L169,92 L215,112 L225,64 L219,50 C207,30 177,24 151,34 L125,18 L115,54 L112,58 L110,54 L105,18Z"/>
+    <circle cx="112" cy="168" r="6.5" fill="${lk(f,16)}" stroke="${dk(f,10)}" stroke-width="1"/>
+    <circle cx="112" cy="168" r="2.5" fill="${dk(f,10)}" opacity=".5"/>
+    <circle cx="112" cy="196" r="6.5" fill="${lk(f,16)}" stroke="${dk(f,10)}" stroke-width="1"/>
+    <circle cx="112" cy="196" r="2.5" fill="${dk(f,10)}" opacity=".5"/>
+    <rect x="58" y="178" width="35" height="9" rx="2" fill="${dk(f,10)}" stroke="${dk(f,16)}" stroke-width=".8"/>
+    <rect x="132" y="178" width="35" height="9" rx="2" fill="${dk(f,10)}" stroke="${dk(f,16)}" stroke-width=".8"/>
+    <rect x="64" y="104" width="24" height="18" rx="2" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+    <line x1="56" y1="94" x2="52" y2="280" stroke="rgba(0,0,0,.1)" stroke-width="1.2"/>
+    <line x1="169" y1="94" x2="173" y2="280" stroke="rgba(0,0,0,.1)" stroke-width="1.2"/>
+    <line x1="10" y1="104" x2="56" y2="88" stroke="${lk(f,10)}" stroke-width="2.5"/>
+    <line x1="215" y1="104" x2="169" y2="88" stroke="${lk(f,10)}" stroke-width="2.5"/>
+    ${[-1,0,1].map(i=>`<circle cx="${38+i*7}" cy="${100-i*5}" r="2" fill="${lk(f,18)}" opacity=".6"/>`).join('')}
+    ${[-1,0,1].map(i=>`<circle cx="${187-i*7}" cy="${100-i*5}" r="2" fill="${lk(f,18)}" opacity=".6"/>`).join('')}
+  </svg>`
+},
+{
+  id:'dress',name:'Dress',dColor:'#e8b4b8',w:185,h:330,
+  fn:(f,uid)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 185 330">
+    <defs>
+      <linearGradient id="drg${uid}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,.2)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,.07)"/>
+      </linearGradient>
+      <linearGradient id="drg2${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${dk(f,8)}"/>
+        <stop offset="100%" stop-color="${f}"/>
+      </linearGradient>
+      <filter id="drf${uid}"><feDropShadow dx="0" dy="6" stdDeviation="9" flood-opacity=".2"/></filter>
+    </defs>
+    <path filter="url(#drf${uid})" fill="${f}" d="M50,135 L5,325 L180,325 L135,135 Z"/>
+    <path fill="url(#drg2${uid})" d="
+      M62,15 C46,15 30,22 28,35
+      L22,60 L56,70 L52,135 L133,135 L129,70
+      L163,60 L157,35 C155,22 139,15 123,15
+      Q112,0 92,0 Q72,0 62,15Z"/>
+    <path fill="url(#drg${uid})" d="
+      M62,15 C46,15 30,22 28,35 L22,60 L56,70 L52,135 L133,135 L129,70
+      L163,60 L157,35 C155,22 139,15 123,15 Q112,0 92,0 Q72,0 62,15Z"/>
+    <path fill="${dk(f,12)}" stroke="${dk(f,18)}" stroke-width=".8" d="M62,15 Q66,0 74,0 L80,0 L72,22Z"/>
+    <path fill="${dk(f,12)}" stroke="${dk(f,18)}" stroke-width=".8" d="M123,15 Q119,0 111,0 L105,0 L113,22Z"/>
+    <path fill="none" stroke="${dk(f,20)}" stroke-width="1.5" d="M62,15 Q92,8 123,15"/>
+    <line x1="52" y1="135" x2="133" y2="135" stroke="${dk(f,20)}" stroke-width="2"/>
+    <line x1="56" y1="72" x2="52" y2="134" stroke="rgba(0,0,0,.08)" stroke-width="1.2"/>
+    <line x1="129" y1="72" x2="133" y2="134" stroke="rgba(0,0,0,.08)" stroke-width="1.2"/>
+    <path fill="rgba(255,255,255,.1)" d="M50,135 L5,325 L92,325 L72,135Z"/>
+    <line x1="78" y1="135" x2="52" y2="325" stroke="rgba(0,0,0,.06)" stroke-width="1.2"/>
+    <line x1="92" y1="135" x2="92" y2="325" stroke="rgba(0,0,0,.05)" stroke-width="1"/>
+    <line x1="107" y1="135" x2="133" y2="325" stroke="rgba(0,0,0,.06)" stroke-width="1.2"/>
+    <path fill="none" stroke="${dk(f,12)}" stroke-width="1.5" d="M5,325 Q92,331 180,325"/>
+    <path fill="none" stroke="${dk(f,18)}" stroke-width=".8" stroke-dasharray="3,3" d="M7,321 Q92,327 178,321"/>
+    <line x1="92" y1="2" x2="92" y2="20" stroke="${dk(f,28)}" stroke-width="1.2"/>
+    <ellipse cx="92" cy="20" rx="3" ry="2.5" fill="${dk(f,28)}"/>
+  </svg>`
+},
+{
+  id:'hoodie',name:'Hoodie',dColor:'#7a8a7a',w:215,h:235,
+  fn:(f,uid)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 215 235">
+    <defs>
+      <linearGradient id="hg${uid}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,.15)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,.1)"/>
+      </linearGradient>
+      <filter id="hf${uid}"><feDropShadow dx="0" dy="5" stdDeviation="7" flood-opacity=".22"/></filter>
+    </defs>
+    <path filter="url(#hf${uid})" fill="${f}" d="
+      M80,45 C55,38 22,44 10,60 L0,72 L8,115 L52,98
+      L50,230 L165,230 L163,98 L207,115 L215,72
+      L205,60 C193,44 160,38 135,45
+      Q118,62 107,64 Q97,62 80,45Z"/>
+    <path fill="${dk(f,8)}" stroke="${dk(f,16)}" stroke-width="1" d="
+      M80,45 Q60,48 50,38 Q40,22 60,8 Q78,0 107,2
+      Q97,20 97,42 Q88,52 80,45Z"/>
+    <path fill="${dk(f,4)}" stroke="${dk(f,16)}" stroke-width="1" d="
+      M135,45 Q155,48 165,38 Q175,22 155,8 Q137,0 108,2
+      Q118,20 118,42 Q127,52 135,45Z"/>
+    <path fill="${dk(f,20)}" d="M97,42 Q107,46 118,42 Q118,20 108,2 Q97,20 97,42Z"/>
+    <path fill="${dk(f,10)}" stroke="${dk(f,18)}" stroke-width=".8"
+      d="M65,155 Q65,180 72,188 L107,188 L143,188 Q150,180 150,155Z"/>
+    <path fill="url(#hg${uid})" d="M80,45 C55,38 22,44 10,60 L0,72 L8,115 L52,98 L50,230 L165,230 L163,98 L207,115 L215,72 L205,60 C193,44 160,38 135,45 Q118,62 107,64 Q97,62 80,45Z"/>
+    <line x1="107" y1="64" x2="107" y2="140" stroke="${dk(f,25)}" stroke-width="1.5"/>
+    <rect x="103" y="64" width="8" height="8" rx="1.5" fill="${dk(f,25)}"/>
+    <line x1="52" y1="100" x2="50" y2="230" stroke="rgba(0,0,0,.08)" stroke-width="1.2"/>
+    <line x1="163" y1="100" x2="165" y2="230" stroke="rgba(0,0,0,.08)" stroke-width="1.2"/>
+    <line x1="8" y1="108" x2="52" y2="94" stroke="${dk(f,20)}" stroke-width="2.5"/>
+    <line x1="207" y1="108" x2="163" y2="94" stroke="${dk(f,20)}" stroke-width="2.5"/>
+    <line x1="50" y1="226" x2="165" y2="226" stroke="${dk(f,18)}" stroke-width="2"/>
+    <circle cx="94" cy="62" r="3" fill="${dk(f,30)}"/>
+    <circle cx="121" cy="62" r="3" fill="${dk(f,30)}"/>
+    <path fill="none" stroke="${dk(f,30)}" stroke-width="1" d="M94,65 Q94,85 80,100"/>
+    <path fill="none" stroke="${dk(f,30)}" stroke-width="1" d="M121,65 Q121,85 135,100"/>
+  </svg>`
+},
+{
+  id:'coat',name:'Trench Coat',dColor:'#b89a6e',w:220,h:320,
+  fn:(f,uid)=>`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 320">
+    <defs>
+      <linearGradient id="cg${uid}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,.12)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,.12)"/>
+      </linearGradient>
+      <filter id="cf${uid}"><feDropShadow dx="0" dy="7" stdDeviation="9" flood-opacity=".22"/></filter>
+    </defs>
+    <rect x="72" y="148" width="76" height="14" rx="2" fill="${dk(f,15)}" opacity=".7"/>
+    <rect x="105" y="144" width="10" height="22" rx="1.5" fill="${dk(f,22)}"/>
+    <path filter="url(#cf${uid})" fill="${f}" d="
+      M72,38 C46,26 16,32 5,54 L0,70 L10,118 L56,98
+      L50,315 L170,315 L164,98 L210,118 L220,70
+      L215,54 C204,32 174,26 148,38
+      L130,20 L120,56 L110,62 L100,56 L90,20 Z"/>
+    <path fill="${lk(f,5)}" stroke="${dk(f,14)}" stroke-width="1.2" d="
+      M72,38 L90,20 L100,56 L65,105 L42,98 L50,72Z"/>
+    <path fill="${lk(f,5)}" stroke="${dk(f,14)}" stroke-width="1.2" d="
+      M148,38 L130,20 L120,56 L155,105 L178,98 L170,72Z"/>
+    <path fill="${dk(f,8)}" d="M100,56 L110,62 L120,56 L110,48Z" opacity=".7"/>
+    <path fill="url(#cg${uid})" d="M72,38 C46,26 16,32 5,54 L0,70 L10,118 L56,98 L50,315 L170,315 L164,98 L210,118 L220,70 L215,54 C204,32 174,26 148,38 L130,20 L120,56 L110,62 L100,56 L90,20Z"/>
+    ${[130,158,186,214].map(y=>`
+      <circle cx="97" cy="${y}" r="5" fill="${dk(f,18)}" stroke="${dk(f,25)}" stroke-width=".8"/>
+      <circle cx="123" cy="${y}" r="5" fill="${dk(f,18)}" stroke="${dk(f,25)}" stroke-width=".8"/>
+    `).join('')}
+    <path fill="${dk(f,10)}" stroke="${dk(f,18)}" stroke-width=".8" d="M56,180 Q58,192 62,196 L94,196 Q98,192 100,180Z"/>
+    <path fill="${dk(f,10)}" stroke="${dk(f,18)}" stroke-width=".8" d="M120,180 Q122,192 126,196 L158,196 Q162,192 164,180Z"/>
+    <line x1="56" y1="100" x2="50" y2="315" stroke="rgba(0,0,0,.09)" stroke-width="1.2"/>
+    <line x1="164" y1="100" x2="170" y2="315" stroke="rgba(0,0,0,.09)" stroke-width="1.2"/>
+    <rect x="13" y="108" width="45" height="12" rx="2" fill="${dk(f,12)}" transform="rotate(-20,36,114)"/>
+    <rect x="162" y="108" width="45" height="12" rx="2" fill="${dk(f,12)}" transform="rotate(20,184,114)"/>
+    <line x1="50" y1="311" x2="170" y2="311" stroke="${dk(f,18)}" stroke-width="1.5"/>
+  </svg>`
+},
+];
+
+const SWATCHES=[
+  '#ffffff','#f5e6d3','#e2cdb4','#1a1a1a','#2c3040',
+  '#e76f51','#264653','#2a9d8f','#e9c46a','#6d4c41',
+  '#4a6fa5','#90a4ae','#f48fb1','#ce93d8','#80cbc4',
+  '#aed581','#7a8a7a','#b89a6e','#c09ab0','#e8b4b8',
+];
+
+let items=[],selId=null,nextId=1,drag=null,rotMode=null;
+
+const board=document.getElementById('board');
+const ie=document.getElementById('ie');
+const ic=document.getElementById('ic');
+const ll=document.getElementById('ll');
+const colorSec=document.getElementById('colorSec');
+
+function init(){
+  buildCatalog();
+  buildSwatches();
+  bindControls();
+  bindGlobalPointer();
+}
+
+function buildCatalog(){
+  const cat=document.getElementById('cat');
+  CLOTHES.forEach(def=>{
+    const el=document.createElement('div');
+    el.className='ct';
+    el.innerHTML=def.fn(def.dColor,'prev')+`<span>${def.name}</span>`;
+    el.onclick=()=>addSVGItem(def);
+    cat.appendChild(el);
+  });
+}
+
+function buildSwatches(){
+  const sw=document.getElementById('swatches');
+  SWATCHES.forEach(c=>{
+    const s=document.createElement('div');
+    s.className='sw';
+    s.style.background=c;
+    if(c==='#ffffff')s.style.boxShadow='inset 0 0 0 1px rgba(0,0,0,.15)';
+    s.onclick=()=>{
+      applyColor(c);
+      document.querySelectorAll('.sw').forEach(x=>x.classList.remove('act'));
+      s.classList.add('act');
+      try{document.getElementById('cp').value=c}catch(e){}
+    };
+    sw.appendChild(s);
+  });
+}
+
+function bindGlobalPointer(){
+  document.addEventListener('pointermove',e=>{
+    if(!drag&&!rotMode)return;
+    const br=board.getBoundingClientRect();
+    if(drag){
+      const it=drag.it;
+      it.x=e.clientX-br.left-drag.ox;
+      it.y=e.clientY-br.top-drag.oy;
+      const el=board.querySelector(`[data-id="${it.id}"]`);
+      if(el){el.style.left=it.x+'px';el.style.top=it.y+'px';}
+    }
+    if(rotMode){
+      const it=items.find(i=>i.id===rotMode.id);
+      if(!it)return;
+      const cx=br.left+it.x+(it.w*it.scale)/2;
+      const cy=br.top+it.y+(it.h*it.scale)/2;
+      const ang=Math.atan2(e.clientY-cy,e.clientX-cx)*(180/Math.PI)+90;
+      it.rotation=Math.round(ang);
+      const el=board.querySelector(`[data-id="${it.id}"]`);
+      if(el)el.style.transform=`rotate(${it.rotation}deg) scaleX(${it.flipX?-1:1})`;
+      document.getElementById('rotSl').value=it.rotation;
+      document.getElementById('rotV').textContent=it.rotation+'°';
+    }
+  });
+  document.addEventListener('pointerup',clearInteract);
+  document.addEventListener('pointercancel',clearInteract);
+}
+
+function clearInteract(){
+  drag=null;
+  rotMode=null;
+}
+
+function bindControls(){
+  const upz=document.getElementById('upz');
+  const fi=document.getElementById('fi');
+  upz.onclick=()=>fi.click();
+  upz.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();fi.click();}
+  });
+  fi.onchange=e=>{handleFiles([...e.target.files]);e.target.value='';};
+  upz.ondragover=e=>{e.preventDefault();upz.classList.add('dov')};
+  upz.ondragleave=()=>upz.classList.remove('dov');
+  upz.ondrop=e=>{e.preventDefault();upz.classList.remove('dov');handleFiles([...e.dataTransfer.files])};
+
+  board.onclick=e=>{
+    if(e.target===board||e.target.closest('#mn'))select(null);
+  };
+
+  document.getElementById('bgSel').onchange=function(){
+    board.className='';
+    board.style.background='';
+    const v=this.value;
+    if(v==='white')board.style.background='#fff';
+    else if(v==='cream')board.style.background='#faf5ef';
+    else if(v==='stone')board.style.background='#e8e4df';
+    else if(v==='dark')board.style.background='#1a1714';
+    else if(v==='grid')board.classList.add('bg-grid');
+    else if(v==='dots')board.classList.add('bg-dots');
+  };
+
+  const mnBtn=document.getElementById('mnBtn');
+  let mnOn=false;
+  mnBtn.onclick=()=>{
+    mnOn=!mnOn;
+    document.getElementById('mn').style.display=mnOn?'block':'none';
+    mnBtn.style.borderColor=mnOn?'var(--accent)':'';
+    mnBtn.style.color=mnOn?'var(--accent)':'';
+  };
+
+  document.getElementById('clrBtn').onclick=()=>{
+    if(!items.length||confirm('Clear the board?')){
+      items=[];select(null);renderAll();
+    }
+  };
+
+  document.getElementById('cp').oninput=function(){applyColor(this.value)};
+
+  document.getElementById('scSl').oninput=function(){
+    document.getElementById('scV').textContent=parseFloat(this.value).toFixed(1)+'×';
+    applyProp('scale',parseFloat(this.value));
+  };
+  document.getElementById('rotSl').oninput=function(){
+    document.getElementById('rotV').textContent=this.value+'°';
+    applyProp('rotation',parseInt(this.value,10));
+  };
+  document.getElementById('opSl').oninput=function(){
+    const v=parseFloat(this.value);
+    document.getElementById('opV').textContent=Math.round(v*100)+'%';
+    applyProp('opacity',v);
+  };
+
+  document.getElementById('flipBtn').onclick=()=>{const it=getSel();if(it){it.flipX=!it.flipX;updateEl(it)}};
+  document.getElementById('frtBtn').onclick=()=>{const it=getSel();if(!it)return;items=items.filter(i=>i.id!==it.id);items.push(it);renderAll()};
+  document.getElementById('bckBtn').onclick=()=>{const it=getSel();if(!it)return;items=items.filter(i=>i.id!==it.id);items.unshift(it);renderAll()};
+  document.getElementById('delBtn').onclick=()=>{if(!selId)return;items=items.filter(i=>i.id!==selId);select(null);renderAll()};
+
+  document.getElementById('expBtn').onclick=exportPNG;
+}
+
+function addSVGItem(def){
+  const item={
+    id:nextId++,type:'svg',name:def.name,
+    x:100+Math.random()*140,y:60+Math.random()*80,
+    w:def.w,h:def.h,scale:1,rotation:0,opacity:1,flipX:false,
+    color:def.dColor,def
+  };
+  items.push(item);
+  renderAll();
+  select(item.id);
+}
+
+function handleFiles(files){
+  files.forEach(f=>{
+    if(!f.type.startsWith('image/'))return;
+    const rdr=new FileReader();
+    rdr.onload=e=>{
+      const src=e.target.result;
+      const img=new Image();
+      img.onload=()=>{
+        const maxSz=220,sc=Math.min(1,maxSz/Math.max(img.naturalWidth,img.naturalHeight));
+        const item={
+          id:nextId++,type:'img',name:f.name.replace(/\.[^.]+$/,''),
+          x:80+Math.random()*100,y:60+Math.random()*80,
+          w:img.naturalWidth,h:img.naturalHeight,
+          scale:sc,rotation:0,opacity:1,flipX:false,color:null,src
+        };
+        items.push(item);
+        renderAll();
+        select(item.id);
+      };
+      img.src=src;
+    };
+    rdr.readAsDataURL(f);
+  });
+}
+
+function renderAll(){
+  board.querySelectorAll('.bi').forEach(el=>el.remove());
+  items.forEach(it=>{
+    const el=makeEl(it);
+    board.appendChild(el);
+  });
+  renderLayers();
+}
+
+function makeEl(it){
+  const el=document.createElement('div');
+  el.className='bi'+(it.id===selId?' sel':'');
+  el.dataset.id=String(it.id);
+
+  const inner=document.createElement('div');
+  inner.className='bi-inner';
+
+  if(it.type==='svg'){
+    inner.innerHTML=it.def.fn(it.color,it.id);
+    const svg=inner.querySelector('svg');
+    svg.style.width=(it.w*it.scale)+'px';
+    svg.style.height=(it.h*it.scale)+'px';
+  } else {
+    const img=document.createElement('img');
+    img.src=it.src;
+    img.style.width=(it.w*it.scale)+'px';
+    img.style.height=(it.h*it.scale)+'px';
+    img.draggable=false;
+    inner.appendChild(img);
+  }
+
+  const rotH=document.createElement('div');rotH.className='h-rot';rotH.textContent='↻';
+  const scH=document.createElement('div');scH.className='h-sc';
+  inner.appendChild(rotH);inner.appendChild(scH);
+  el.appendChild(inner);
+
+  posEl(el,it);
+  bindEl(el,it);
+  return el;
+}
+
+function posEl(el,it){
+  el.style.left=it.x+'px';
+  el.style.top=it.y+'px';
+  el.style.opacity=String(it.opacity);
+  el.style.transform=`rotate(${it.rotation}deg) scaleX(${it.flipX?-1:1})`;
+}
+
+function updateEl(it){
+  const el=board.querySelector(`[data-id="${it.id}"]`);
+  if(!el)return;
+  posEl(el,it);
+  const inner=el.querySelector('.bi-inner');
+  if(it.type==='svg'){
+    const oldSvg=inner.querySelector('svg');
+    const tmp=document.createElement('div');
+    tmp.innerHTML=it.def.fn(it.color,it.id);
+    const newSvg=tmp.querySelector('svg');
+    newSvg.style.width=(it.w*it.scale)+'px';
+    newSvg.style.height=(it.h*it.scale)+'px';
+    oldSvg.replaceWith(newSvg);
+  } else {
+    const img=inner.querySelector('img');
+    if(img){img.style.width=(it.w*it.scale)+'px';img.style.height=(it.h*it.scale)+'px';}
+  }
+}
+
+function renderLayers(){
+  ll.innerHTML='';
+  [...items].reverse().forEach(it=>{
+    const el=document.createElement('div');
+    el.className='li'+(it.id===selId?' act':'');
+    const ico=it.type==='svg'
+      ?it.def.fn(it.color,it.id+'l')
+      :`<img src="${it.src}" alt="" style="object-fit:contain;width:100%;height:100%">`;
+    el.innerHTML=`<div class="lic">${ico}</div><span class="ln"></span>`;
+    el.querySelector('.ln').textContent=it.name;
+    el.onclick=()=>select(it.id);
+    ll.appendChild(el);
+  });
+}
+
+function select(id){
+  selId=id;
+  board.querySelectorAll('.bi').forEach(el=>{
+    el.classList.toggle('sel',Number(el.dataset.id)===id);
+  });
+  const it=items.find(i=>i.id===id);
+  if(it){
+    ie.style.display='none';ic.style.display='';
+    document.getElementById('pn').textContent=it.name;
+    document.getElementById('scSl').value=String(it.scale);
+    document.getElementById('scV').textContent=it.scale.toFixed(1)+'×';
+    document.getElementById('rotSl').value=String(it.rotation);
+    document.getElementById('rotV').textContent=it.rotation+'°';
+    document.getElementById('opSl').value=String(it.opacity);
+    document.getElementById('opV').textContent=Math.round(it.opacity*100)+'%';
+    try{if(it.color)document.getElementById('cp').value=it.color}catch(e){}
+    const isImg=it.type==='img';
+    colorSec.style.opacity=isImg?'0.35':'1';
+    colorSec.style.pointerEvents=isImg?'none':'';
+  } else {
+    ie.style.display='';ic.style.display='none';
+  }
+  renderLayers();
+}
+
+function getSel(){return items.find(i=>i.id===selId)}
+
+function applyColor(c){
+  const it=getSel();if(!it||it.type==='img')return;
+  it.color=c;updateEl(it);renderLayers();
+}
+function applyProp(k,v){
+  const it=getSel();if(!it)return;
+  it[k]=v;updateEl(it);
+}
+
+function bindEl(el,it){
+  el.addEventListener('pointerdown',e=>{
+    if(e.target.classList.contains('h-rot')||e.target.classList.contains('h-sc'))return;
+    e.stopPropagation();
+    select(it.id);
+    const br=board.getBoundingClientRect();
+    drag={it,ox:e.clientX-br.left-it.x,oy:e.clientY-br.top-it.y};
+    try{el.setPointerCapture(e.pointerId);}catch(_){}
+  });
+
+  el.querySelector('.h-rot').addEventListener('pointerdown',e=>{
+    e.stopPropagation();
+    rotMode={id:it.id};
+    select(it.id);
+    try{el.setPointerCapture(e.pointerId);}catch(_){}
+  });
+
+  el.querySelector('.h-sc').addEventListener('pointerdown',e=>{
+    e.stopPropagation();
+    select(it.id);
+    const s0=it.scale,x0=e.clientX,y0=e.clientY;
+    const mv=e2=>{
+      const d=(e2.clientX-x0+e2.clientY-y0)/180;
+      it.scale=Math.max(.15,Math.min(4,s0+d));
+      updateEl(it);
+      document.getElementById('scSl').value=String(it.scale);
+      document.getElementById('scV').textContent=it.scale.toFixed(1)+'×';
+    };
+    const up=()=>{
+      window.removeEventListener('pointermove',mv);
+      window.removeEventListener('pointerup',up);
+      window.removeEventListener('pointercancel',up);
+    };
+    window.addEventListener('pointermove',mv);
+    window.addEventListener('pointerup',up);
+    window.addEventListener('pointercancel',up);
+    try{el.setPointerCapture(e.pointerId);}catch(_){}
+  });
+}
+
+async function exportPNG(){
+  const prev=selId;
+  select(null);
+  await new Promise(r=>setTimeout(r,80));
+  try{
+    const mod=await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.esm.js');
+    const canvas=await mod.default(board,{useCORS:true,scale:2,logging:false,backgroundColor:null});
+    const link=document.createElement('a');
+    link.download='vestir-outfit.png';
+    link.href=canvas.toDataURL('image/png');
+    link.click();
+  } catch(e){
+    alert('Export needs a local server for the capture library.\n\nTry: npx serve vestir\nOr VS Code Live Server, then Export again.\n\nYou can also Print → Save as PDF or screenshot the board.');
+  }
+  select(prev);
+}
+
+init();
+</script>
+</body>
+</html>
