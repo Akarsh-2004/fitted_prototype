@@ -64,7 +64,7 @@ interface ComposerItem {
 
 type ColorBearing = { colors: ColorProfile[] };
 
-const GEMINI_STAGE_API_BASE = 'http://127.0.0.1:8012';
+const GEMINI_STAGE_API_BASE = import.meta.env.VITE_GEMINI_STAGE_API_BASE || '';
 
 interface JobData {
   job_id: string;
@@ -95,6 +95,11 @@ interface UploadResponse {
   dimensions: { width: number; height: number };
   counts: { faces: number; people: number; garments: number };
 }
+
+type DetectedPerson = {
+  id?: number;
+  polygon?: number[][];
+};
 
 const getPartTheme = (label: string) => {
   switch (label) {
@@ -386,6 +391,11 @@ export default function App() {
   // Interactive group canvas S4 state
   const [hoveredPersonId, setHoveredPersonId] = useState<number | null>(null);
   const [matchingClick, setMatchingClick] = useState<boolean>(false);
+  const [pendingPersonSelection, setPendingPersonSelection] = useState<{
+    x: number;
+    y: number;
+    personId: number | null;
+  } | null>(null);
 
   // S2 Multi flat-lay confirmation state
   const [confirmedIndices, setConfirmedIndices] = useState<number[]>([]);
@@ -558,6 +568,29 @@ export default function App() {
     fetchCloset(activeCategory, val);
   };
 
+  const uploadOneViaLegacy = async (file: File): Promise<{ upload: UploadResponse; job: JobData | null }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!res.ok) {
+      const detail = await res.json().catch(() => null);
+      throw new Error(detail?.detail || "Backend classification routing failed.");
+    }
+
+    const upload: UploadResponse = await res.json();
+    let job: JobData | null = null;
+    const jobRes = await fetch(`/api/job/${upload.job_id}`);
+    if (jobRes.ok) {
+      job = await jobRes.json();
+    }
+    return { upload, job };
+  };
+
   // Initializing file uploading and classification routing
   const handleFileUpload = async (file: File) => {
     if (!file) return;
@@ -567,6 +600,7 @@ export default function App() {
     setJobData(null);
     setConfirmedIndices([]);
     setHoveredPersonId(null);
+    setPendingPersonSelection(null);
 
     if (uploadMode === 'gemini') {
       try {
@@ -588,34 +622,31 @@ export default function App() {
         }
       } catch (err: any) {
         console.error(err);
-        setError(err.message || 'Gemini upload failed.');
+        try {
+          const fallback = await uploadOneViaLegacy(file);
+          setUploadData(fallback.upload);
+          if (fallback.job) {
+            setJobData(fallback.job);
+          }
+          setStylingBrief({
+            name: 'Gemini Unavailable, Using Local Pipeline',
+            explanation: `${err.message || 'Gemini upload failed.'} The upload was routed through the local YOLO/SAM/SCHP/SegFormer pipeline instead.`,
+          });
+        } catch (fallbackErr: any) {
+          console.error(fallbackErr);
+          setError(`${err.message || 'Gemini upload failed.'} Local fallback also failed: ${fallbackErr.message || 'unknown error'}`);
+        }
       } finally {
         setLoading(false);
       }
       return;
     }
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!res.ok) {
-        throw new Error("Backend classification routing failed.");
-      }
-
-      const data: UploadResponse = await res.json();
-      setUploadData(data);
-      
-      // Fetch initial job status
-      const jobRes = await fetch(`/api/job/${data.job_id}`);
-      if (jobRes.ok) {
-        const initialJob: JobData = await jobRes.json();
-        setJobData(initialJob);
+      const result = await uploadOneViaLegacy(file);
+      setUploadData(result.upload);
+      if (result.job) {
+        setJobData(result.job);
       }
     } catch (err: any) {
       console.error(err);
@@ -713,6 +744,7 @@ export default function App() {
     setError(null);
     setConfirmedIndices([]);
     setHoveredPersonId(null);
+    setPendingPersonSelection(null);
     
     // Set JobData
     setJobData(job);
@@ -834,19 +866,44 @@ export default function App() {
     const height = uploadData.dimensions?.height || canvas.height;
     const clickX = (e.clientX - rect.left) * (width / rect.width);
     const clickY = (e.clientY - rect.top) * (height / rect.height);
-    
+
+    let matchedPerson: DetectedPerson | null = null;
+    for (let i = (jobData.detected_items?.length || 0) - 1; i >= 0; i--) {
+      const person = jobData.detected_items?.[i];
+      if (Array.isArray(person?.polygon) && isPointInPolygon(clickX, clickY, person.polygon)) {
+        matchedPerson = person;
+        break;
+      }
+    }
+
+    if (!matchedPerson) {
+      alert("Click missed! Try clicking in the torso center of an individual.");
+      setPendingPersonSelection(null);
+      return;
+    }
+
+    setHoveredPersonId(matchedPerson.id ?? null);
+    setPendingPersonSelection({
+      x: clickX,
+      y: clickY,
+      personId: matchedPerson.id ?? null,
+    });
+  };
+
+  const startSelectedPersonParsing = async (method: 'gemini' | 'segformer') => {
+    if (!uploadData || !pendingPersonSelection) return;
+
     setMatchingClick(true);
     try {
-      const selectionEndpoint = uploadMode === 'gemini'
-        ? `${GEMINI_STAGE_API_BASE}/api/select-person/gemini`
-        : '/api/select-person';
+      const apiBase = uploadMode === 'gemini' ? GEMINI_STAGE_API_BASE : '';
+      const selectionEndpoint = `${apiBase}/api/select-person/${method}`;
       const res = await fetch(selectionEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           job_id: uploadData.job_id,
-          x: clickX,
-          y: clickY
+          x: pendingPersonSelection.x,
+          y: pendingPersonSelection.y
         })
       });
 
@@ -855,19 +912,27 @@ export default function App() {
         if (data.matched) {
           // Transition job to processing state
           setJobData(prev => prev ? { ...prev, status: 'processing' } : null);
-          if (uploadMode === 'gemini') {
-            setStylingBrief({
-              name: 'Gemini Extracting Selected Person',
-              explanation: 'Gemini is isolating top, bottom, and shoes from the person you clicked, then aligning them for the Composer.',
-            });
-          }
+          setPendingPersonSelection(null);
+          setStylingBrief(method === 'gemini'
+            ? {
+                name: 'Gemini Extracting Selected Person',
+                explanation: 'Gemini is isolating top, bottom, and shoes from the person you clicked, then aligning them for the Composer.',
+              }
+            : {
+                name: 'SegFormer Parsing Selected Person',
+                explanation: 'SegFormer is parsing clothes labels for the selected person, creating top, bottom, shoes, and accessory layers for the Composer.',
+              }
+          );
         } else {
           alert(data.message || "Click missed! Try clicking in the torso center of an individual.");
         }
+      } else {
+        const detail = await res.json().catch(() => null);
+        throw new Error(detail?.detail || `${method} selection failed (${res.status})`);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
-      alert("Error identifying clicked person.");
+      alert(err instanceof Error ? err.message : "Error identifying clicked person.");
     } finally {
       setMatchingClick(false);
     }
@@ -1332,6 +1397,7 @@ export default function App() {
                         setUploadData(null);
                         setJobData(null);
                         setActiveMode('upload');
+                        setPendingPersonSelection(null);
                       }}
                       className="px-2 py-0.5 rounded border border-white/10 hover:border-violet-500/50 text-[8px] font-extrabold uppercase tracking-widest text-slate-400 hover:text-violet-300 transition"
                     >
@@ -1531,9 +1597,25 @@ export default function App() {
                     <div className="flex-1 flex flex-col items-center justify-center py-16 gap-4 text-center">
                       <div className="h-14 w-14 rounded-full border-4 border-violet-500/20 border-t-pink-500 animate-spin"></div>
                       <div>
-                        <h4 className="font-bold text-white text-base animate-pulse">Executing Local AI Segmentation...</h4>
+                        <h4 className="font-bold text-white text-base animate-pulse">
+                          {stylingBrief?.name || 'Executing Local AI Segmentation...'}
+                        </h4>
                         <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-                          Running SAM2 GrabCut contour boundary refinement, extracting transparent crops, and synthesizing Gemini fashion parameters.
+                          {stylingBrief?.explanation || 'Running segmentation, extracting transparent crops, and synthesizing fashion parameters.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {jobData.status === 'failed' && (
+                    <div className="flex-1 flex flex-col items-center justify-center py-16 gap-4 text-center">
+                      <div className="h-14 w-14 rounded-full border border-rose-500/30 bg-rose-500/10 flex items-center justify-center">
+                        <AlertCircle className="h-7 w-7 text-rose-300" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white text-base">Pipeline Failed</h4>
+                        <p className="text-xs text-rose-200/90 mt-1 max-w-md mx-auto">
+                          {jobData.error || 'The backend rejected this job. Try again or choose the other parser.'}
                         </p>
                       </div>
                     </div>
@@ -1718,7 +1800,7 @@ export default function App() {
                             {matchingClick && (
                               <div className="absolute inset-0 bg-black/60 backdrop-blur-xs z-20 flex items-center justify-center gap-2">
                                 <div className="h-6 w-6 rounded-full border-2 border-white/20 border-t-white animate-spin"></div>
-                                <span className="text-xs font-semibold">Matching click point...</span>
+                                <span className="text-xs font-semibold">Starting selected parser...</span>
                               </div>
                             )}
                             <canvas
@@ -1729,6 +1811,37 @@ export default function App() {
                               className="max-h-[350px] max-w-full object-contain rounded-lg border border-white/10 cursor-crosshair"
                             />
                           </div>
+
+                          {pendingPersonSelection && (
+                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div>
+                                <h5 className="text-xs font-bold text-emerald-300">
+                                  Person {pendingPersonSelection.personId !== null ? pendingPersonSelection.personId + 1 : ''} selected
+                                </h5>
+                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                  Choose how to parse this person before continuing the wardrobe pipeline.
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => startSelectedPersonParsing('gemini')}
+                                  disabled={matchingClick}
+                                  className="px-3 py-2 rounded-lg bg-emerald-500 text-slate-950 text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                >
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                  Gemini
+                                </button>
+                                <button
+                                  onClick={() => startSelectedPersonParsing('segformer')}
+                                  disabled={matchingClick}
+                                  className="px-3 py-2 rounded-lg bg-violet-500 text-white text-[10px] font-extrabold uppercase tracking-widest flex items-center gap-1.5 hover:bg-violet-400 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                >
+                                  <Cpu className="h-3.5 w-3.5" />
+                                  SegFormer
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 

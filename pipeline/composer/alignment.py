@@ -22,6 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import cv2
 import numpy as np
 from PIL import Image
 
@@ -105,6 +106,51 @@ def _alpha_bbox(rgba: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
     return int(xs[0]), int(ys[0]), int(xs[-1]) + 1, int(ys[-1]) + 1
 
 
+def _trim_alpha_components(rgba: np.ndarray, category: str) -> np.ndarray:
+    """Drop stray alpha islands before bbox-based composer scaling."""
+    if rgba.ndim != 3 or rgba.shape[2] < 4:
+        return rgba
+
+    alpha = rgba[:, :, 3]
+    mask = (alpha > ALPHA_THRESHOLD).astype(np.uint8)
+    if not np.any(mask > 0):
+        return rgba
+
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    if num_labels <= 2:
+        return rgba
+
+    total_area = int(np.sum(mask > 0))
+    min_area = max(20, int(total_area * 0.025))
+    max_components = 2 if category == "shoes" else 1
+
+    components = []
+    for label_idx in range(1, num_labels):
+        area = int(stats[label_idx, cv2.CC_STAT_AREA])
+        if area >= min_area:
+            components.append((area, label_idx))
+
+    if not components:
+        return rgba
+
+    components.sort(reverse=True)
+    keep = components[:max_components]
+    keep_mask = np.zeros_like(mask)
+    for _, label_idx in keep:
+        keep_mask[labels == label_idx] = 1
+
+    trimmed = rgba.copy()
+    trimmed[:, :, 3] = np.where(keep_mask > 0, alpha, 0).astype(np.uint8)
+    return trimmed
+
+
+def _alpha_fill_ratio(rgba: np.ndarray, bbox: Tuple[int, int, int, int]) -> float:
+    left, top, right, bottom = bbox
+    alpha = rgba[top:bottom, left:right, 3] > ALPHA_THRESHOLD
+    area = max(1, (right - left) * (bottom - top))
+    return float(np.sum(alpha) / area)
+
+
 def _solve_scale(src_w: int, src_h: int, anchor: str, size: int, cap: int) -> float:
     """Compute the uniform scale that puts the source bbox in its slot.
 
@@ -146,7 +192,8 @@ def align_to_canvas(rgba_source: Path, category: str, item_id: str) -> Path:
         raise FileNotFoundError(rgba_source)
 
     src = Image.open(rgba_source).convert("RGBA")
-    arr = np.array(src)
+    arr = _trim_alpha_components(np.array(src), category)
+    src = Image.fromarray(arr, mode="RGBA")
     bbox = _alpha_bbox(arr)
     if bbox is None:
         # Nothing visible; fall back to the whole image bounds.
@@ -156,6 +203,8 @@ def align_to_canvas(rgba_source: Path, category: str, item_id: str) -> Path:
     cropped = src.crop((left, top, right, bottom))
 
     src_w, src_h = cropped.size
+    source_fill_ratio = _alpha_fill_ratio(arr, bbox)
+    source_aspect = src_w / float(src_h) if src_h else 1.0
     scale = _solve_scale(src_w, src_h, anchor, target_size, cap)
     new_w = max(1, int(round(src_w * scale)))
     new_h = max(1, int(round(src_h * scale)))
@@ -163,7 +212,7 @@ def align_to_canvas(rgba_source: Path, category: str, item_id: str) -> Path:
     # Preserve garment height for the body stack, but widen extra-narrow pants
     # so trousers visually match top width. This is intentionally only a
     # horizontal correction; vertical scaling still respects the slot cap.
-    if min_width and new_w < min_width:
+    if min_width and new_w < min_width and source_aspect >= 0.18 and source_fill_ratio >= 0.12:
         new_w = min(min_width, CANVAS_SIZE)
 
     resized = cropped.resize((new_w, new_h), Image.LANCZOS)
