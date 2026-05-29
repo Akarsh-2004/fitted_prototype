@@ -52,7 +52,12 @@ class MaskCleanup:
         return closed
 
     @classmethod
-    def filter_connected_components(cls, mask: np.ndarray, min_area: int = None) -> np.ndarray:
+    def filter_connected_components(
+        cls,
+        mask: np.ndarray,
+        min_area: int = None,
+        max_components: int = None
+    ) -> np.ndarray:
         """
         Runs connected component analysis to remove tiny isolated noise regions and
         optionally isolate the largest contiguous components.
@@ -69,17 +74,28 @@ class MaskCleanup:
         cleaned = np.zeros_like(mask)
         
         # Background is label 0, start from 1
+        components = []
         for label in range(1, num_labels):
             area = stats[label, cv2.CC_STAT_AREA]
-            
-            # Keep only components that satisfy minimum size criteria
             if area >= min_area:
-                cleaned[labels == label] = 255
+                components.append((int(area), label))
+
+        components.sort(reverse=True)
+        if max_components is not None:
+            components = components[:max_components]
+
+        for _, label in components:
+            cleaned[labels == label] = 255
                 
         return cleaned
 
     @classmethod
-    def smooth_and_simplify(cls, mask: np.ndarray, factor: float = 0.002) -> Tuple[np.ndarray, List[List[float]], List[float]]:
+    def smooth_and_simplify(
+        cls,
+        mask: np.ndarray,
+        factor: float = 0.002,
+        max_components: int = 1
+    ) -> Tuple[np.ndarray, List[List[float]], List[float]]:
         """
         Smooths binary mask contours and simplifies them using the Ramer-Douglas-Peucker (RDP) algorithm.
         Returns the refined binary mask, simplified polygon coordinates, and bounding box [x1, y1, x2, y2].
@@ -95,15 +111,25 @@ class MaskCleanup:
         if not contours:
             return refined_mask, [], [0.0, 0.0, 0.0, 0.0]
             
-        # Isolate the largest contour to represent the main garment body
-        largest_cnt = max(contours, key=cv2.contourArea)
-        
-        if cv2.contourArea(largest_cnt) < settings.min_component_area:
+        valid_contours = [cnt for cnt in contours if cv2.contourArea(cnt) >= settings.min_component_area]
+        if not valid_contours:
             return refined_mask, [], [0.0, 0.0, 0.0, 0.0]
+
+        valid_contours = sorted(valid_contours, key=cv2.contourArea, reverse=True)[:max_components]
+        largest_cnt = valid_contours[0]
             
         # 1. Bounding box coordinates
-        x, y, gw, gh = cv2.boundingRect(largest_cnt)
-        bbox = [float(x), float(y), float(x + gw), float(y + gh)]
+        xs = []
+        ys = []
+        x2s = []
+        y2s = []
+        for cnt in valid_contours:
+            x, y, gw, gh = cv2.boundingRect(cnt)
+            xs.append(x)
+            ys.append(y)
+            x2s.append(x + gw)
+            y2s.append(y + gh)
+        bbox = [float(min(xs)), float(min(ys)), float(max(x2s)), float(max(y2s))]
         
         # 2. Polygon simplification (RDP)
         epsilon = factor * cv2.arcLength(largest_cnt, True)
@@ -112,11 +138,24 @@ class MaskCleanup:
         
         # 3. Redraw smoothed, simplified mask
         cv2.drawContours(refined_mask, [approx], -1, 255, -1)
+        for cnt in valid_contours[1:]:
+            epsilon_i = factor * cv2.arcLength(cnt, True)
+            approx_i = cv2.approxPolyDP(cnt, epsilon_i, True)
+            cv2.drawContours(refined_mask, [approx_i], -1, 255, -1)
         
         return refined_mask, polygon, bbox
 
     @classmethod
-    def clean_mask(cls, mask: np.ndarray) -> Tuple[np.ndarray, List[List[float]], List[float]]:
+    def clean_mask(
+        cls,
+        mask: np.ndarray,
+        *,
+        fill_holes: bool = True,
+        allowed_mask: np.ndarray = None,
+        blocked_mask: np.ndarray = None,
+        preserve_components: int = 1,
+        min_area: int = None
+    ) -> Tuple[np.ndarray, List[List[float]], List[float]]:
         """
         Orchestrates full mask cleanup: hole filling, morphology, size filtering,
         and contour simplification.
@@ -126,16 +165,27 @@ class MaskCleanup:
           - polygon: List[List[float]] simplified boundary coordinates
           - bbox: List[float] bounding box [x1, y1, x2, y2]
         """
-        # Step 1: Fill internal holes
-        step1 = cls.fill_holes(mask)
+        constrained = mask.copy()
+        if allowed_mask is not None:
+            constrained = cv2.bitwise_and(constrained, (allowed_mask > 0).astype(np.uint8) * 255)
+        if blocked_mask is not None:
+            constrained[blocked_mask > 0] = 0
+
+        # Step 1: Fill internal holes when the caller allows it
+        step1 = cls.fill_holes(constrained) if fill_holes else constrained
         
         # Step 2: Smooth boundaries via circular opening/closing morphology
         step2 = cls.apply_morphology(step1)
         
         # Step 3: Remove tiny disconnected components
-        step3 = cls.filter_connected_components(step2)
+        step3 = cls.filter_connected_components(step2, min_area=min_area, max_components=preserve_components)
+
+        if allowed_mask is not None:
+            step3 = cv2.bitwise_and(step3, (allowed_mask > 0).astype(np.uint8) * 255)
+        if blocked_mask is not None:
+            step3[blocked_mask > 0] = 0
         
         # Step 4: Perform RDP contour simplification and extract bbox/polygon
-        clean_mask, polygon, bbox = cls.smooth_and_simplify(step3)
+        clean_mask, polygon, bbox = cls.smooth_and_simplify(step3, max_components=preserve_components)
         
         return clean_mask, polygon, bbox

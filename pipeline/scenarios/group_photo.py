@@ -263,6 +263,136 @@ def _force_meta_category(fashion_meta: Dict[str, Any], category: str) -> None:
         fashion_meta["garment_type"] = "shoes"
 
 
+def _force_meta_for_segformer_label(fashion_meta: Dict[str, Any], label_type: str) -> None:
+    if label_type == "top_garment":
+        fashion_meta["garment_type"] = "top"
+    elif label_type == "bottom_garment":
+        fashion_meta["garment_type"] = "bottom"
+    elif label_type == "footwear":
+        fashion_meta["garment_type"] = "shoes"
+    elif label_type in {"hat", "bag", "accessory"}:
+        fashion_meta["garment_type"] = "accessory"
+
+
+def ingest_selected_group_person_segformer(job_id: str, person_idx: int) -> Dict[str, Any]:
+    """SegFormer Stage 2 for a clicked person.
+
+    Reuses S4 Stage 1 person detection/click selection, then parses the selected
+    crop with SegFormer clothes labels to create deterministic garment layers.
+    """
+    from pipeline.parsing.occlusion_repair import build_blocked_mask
+    from pipeline.parsing.segformer_parser import segformer_parser
+
+    job_cache = upload_cache.get(f"group_job_{job_id}")
+    if not job_cache:
+        raise ValueError(f"Cache expired or not found for group job: {job_id}")
+
+    img_path = job_cache["img_path"]
+    cached_people = job_cache["cached_people"]
+
+    if person_idx >= len(cached_people):
+        raise ValueError(f"Invalid person index: {person_idx}")
+
+    person = cached_people[person_idx]
+    box = person["box"]
+    polygon = person["polygon"]
+
+    img = storage_service.load_image(img_path)
+    blurred_img, _ = face_blurrer.blur_faces(img)
+    h, w = blurred_img.shape[:2]
+
+    person_mask = np.zeros((h, w), dtype=np.uint8)
+    poly_pts = np.array(polygon, dtype=np.int32)
+    if len(poly_pts) > 0:
+        cv2.fillPoly(person_mask, [poly_pts], 255)
+    blocked_mask = build_blocked_mask((h, w), cached_people, person_idx)
+
+    logger.info(f"🔮 [S4 Stage 2] Parsing selected person {person_idx} with SegFormer...")
+    segformer_result = segformer_parser.parse_clothing_layers(
+        blurred_img,
+        person_mask,
+        box,
+        job_id,
+        person_idx,
+        blocked_mask=blocked_mask,
+    )
+
+    ingested_items = []
+    segformer_layers = []
+
+    for part in segformer_result["parts"]:
+        if not part["ingest"]:
+            continue
+
+        label_type = part["label"]
+        if label_type in {"bag", "accessory"}:
+            continue
+        rgba_abs = settings.base_dir / part["rgba_crop_path"]
+        cropped_bgra = cv2.imread(str(rgba_abs), cv2.IMREAD_UNCHANGED)
+        if cropped_bgra is None:
+            continue
+
+        cropped_rgba = cv2.cvtColor(cropped_bgra, cv2.COLOR_BGRA2RGBA)
+        item_id = f"seg_{uuid.uuid4().hex[:8]}"
+        perm_crop_path = storage_service.save_crop_rgba(cropped_rgba, item_id)
+
+        dominant_colors = extract_dominant_colors(cropped_rgba, num_colors=3)
+        tags, embedding = siglip_tagger.extract_visual_features(cropped_rgba)
+        tags.extend([f"layer-{label_type}", "segformer-selected-person"])
+
+        crop_h, crop_w = cropped_rgba.shape[:2]
+        aspect_ratio = crop_h / crop_w if crop_w > 0 else 1.0
+        layer_hint = (
+            "upper" if label_type == "top_garment"
+            else "lower" if label_type == "bottom_garment"
+            else "shoes" if label_type == "footwear"
+            else "hat" if label_type == "hat"
+            else None
+        )
+
+        fashion_meta = gemini_client.analyze_garment(
+            tags,
+            dominant_colors,
+            aspect_ratio,
+            layer_hint=layer_hint,
+        )
+        _force_meta_for_segformer_label(fashion_meta, label_type)
+
+        item_data = {
+            "id": item_id,
+            "colors": dominant_colors,
+            "tags": list(set(tags + [fashion_meta.get("subtype", "garment"), fashion_meta.get("material", "cotton")])),
+            "image_path": storage_service.get_relative_path(perm_crop_path),
+            "scene_type": "group_photo",
+            **fashion_meta,
+        }
+
+        vector_store.add_item(item_id, embedding)
+        insert_wardrobe_item(item_id, item_data)
+        ingested_items.append(item_id)
+        segformer_layers.append({
+            "id": item_id,
+            "label": label_type,
+            "confidence": part.get("confidence"),
+            "pixel_area": part.get("pixel_area"),
+        })
+
+    if not ingested_items:
+        raise ValueError("SegFormer did not produce any ingestible garment layers for the selected person.")
+
+    result_data = {
+        "cutout": segformer_result["cutout"],
+        "parsed_parts": segformer_result["parts"],
+        "ingested_items": ingested_items,
+        "segformer_layers": segformer_layers,
+        "segformer_selected_person": True,
+    }
+
+    update_job(job_id=job_id, status="completed", result=[result_data])
+    upload_cache.delete(f"group_job_{job_id}")
+    return result_data
+
+
 def ingest_selected_group_person_gemini(job_id: str, person_idx: int) -> Dict[str, Any]:
     """Gemini Stage 2 for a clicked person.
 

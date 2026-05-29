@@ -16,7 +16,9 @@ class GarmentRefiner:
         img: np.ndarray,
         semantic_mask: np.ndarray,
         bbox: List[float],
-        iterations: int = 5
+        iterations: int = 5,
+        allowed_mask: np.ndarray = None,
+        blocked_mask: np.ndarray = None
     ) -> np.ndarray:
         """
         Refines a semantic mask using color-contrast GrabCut segmentation.
@@ -60,11 +62,22 @@ class GarmentRefiner:
         # We mark the entire semantic mask as Probable Foreground (GC_PR_FGD)
         cv_mask[semantic_mask > 0] = cv2.GC_PR_FGD
 
+        # Hard geometry constraints: never let GrabCut grow outside the
+        # selected support or into known occluders/neighbouring people.
+        if allowed_mask is not None:
+            cv_mask[allowed_mask == 0] = cv2.GC_BGD
+        if blocked_mask is not None:
+            cv_mask[blocked_mask > 0] = cv2.GC_BGD
+
         # To build a definite foreground anchor, we erode the semantic mask
         # this ensures that inner pixels of the garment are locked as GC_FGD
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         eroded_mask = cv2.erode(semantic_mask, kernel, iterations=1)
         cv_mask[eroded_mask > 0] = cv2.GC_FGD
+        if allowed_mask is not None:
+            cv_mask[allowed_mask == 0] = cv2.GC_BGD
+        if blocked_mask is not None:
+            cv_mask[blocked_mask > 0] = cv2.GC_BGD
 
         # Temporary models required by OpenCV GrabCut
         bgd_model = np.zeros((1, 65), dtype=np.float64)
@@ -93,6 +106,11 @@ class GarmentRefiner:
             # Fallback to the original semantic mask if GrabCut fails due to extreme cases
             print(f"[GarmentRefiner] GrabCut refinement error: {e}. Falling back to semantic mask.")
             refined_mask = semantic_mask.copy()
+
+        if allowed_mask is not None:
+            refined_mask = cv2.bitwise_and(refined_mask, (allowed_mask > 0).astype(np.uint8) * 255)
+        if blocked_mask is not None:
+            refined_mask[blocked_mask > 0] = 0
 
         return refined_mask
 
